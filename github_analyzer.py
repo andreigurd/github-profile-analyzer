@@ -43,7 +43,7 @@ class GitHub_Analyzer:
 
     #----------------------------------------------------------
     def get_user_repos(self):
-        url = f"https://api.github.com/users/{self.user_name}/repos?sort=updated&per_page=5"
+        url = f"https://api.github.com/users/{self.user_name}/repos?per_page=100"
         try:
             response = requests.get(url)    
         
@@ -69,10 +69,61 @@ class GitHub_Analyzer:
 
     #----------------------------------------------------------
     def calculate_stats(self):
-        pass
+        
+        #------------ Total stars across all repos
 
+        stars_count = {}
+        for star_item in self.user_repo_data[:5]:            
+            if stars_count:
+                stars_count += star_item.get('stargazers_count')
+            else:
+                stars_count = star_item.get('stargazers_count')
+
+        #------------ Most popular repository
+        most_stars = []
+        for star_item in self.user_repo_data[:5]:
+            if not most_stars:
+                most_stars = star_item
+            elif star_item.get('stargazers_count') > most_stars.get('stargazers_count'):
+                    most_stars = star_item
+
+        #------------ Primary language (most repos in that language)
+
+        languages_used = []
+        for lang_item in self.user_repo_data[:5]:            
+            if lang_item['language']:
+                languages_used.append(lang_item['language']) 
+
+        # Counter and .most(n) returns a list of tuples of element and count in descending order. (n) argument for how many tuples are returned.
+        primary_language = Counter(languages_used).most(1)           
+
+        #------------ Total forks across all repos
+
+        forks_count = {}
+        for fork_item in self.user_repo_data[:5]:            
+            if forks_count:
+                forks_count += fork_item.get('forks_count')
+            else:
+                forks_count = fork_item.get('forks_count')
+
+    #----------------------------------------------------------
+    def display_stats(self):
+        stats = self.calculate_stats()
+        # tabulate may be overcomplicated. just print single f' rows
+
+        """Display complete repo stats dashboard"""
+        print(f"\n{'='*60}")
+        print(f"GitHub Profile Dashboard for: {self.user_name}")
+        print(f"{'='*60}\n")
+
+        print(f"Total Stars: {stats.stars_count}\n")
+        print(f"Most Popular Repository: {stats.most_stars["name"]}\n")
+        print(f"Primary Language Used: {stats.primary_language[0][0]}\n")
+        # primary_language is counter result of tuples of language and count. want to display language name.
+
+#----------------------------------------------------------
 def main():
-    github_user = GitHub_Analyzer()
+    dashboard = GitHub_Analyzer()
 
     # ask for user name and run get_user function
     while True:
@@ -85,7 +136,10 @@ def main():
         else:
             break
 
-        github_user.view_user_repos(user_name)
+        dashboard.get_user(user_name)
+        dashboard.get_user_repos(user_name)
+        # run  dashboard.calculate_stats(user_name) inside of display_stats
+        dashboard.display_stats(user_name)
 
 if __name__ == "__main__":
     main()
