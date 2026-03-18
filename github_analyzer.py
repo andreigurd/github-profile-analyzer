@@ -44,29 +44,49 @@ class GitHub_Analyzer:
 
     #----------------------------------------------------------
     def get_user_repos(self):
-        url = f"https://api.github.com/users/{self.user_name}/repos?per_page=100"
-        try:
-            response = requests.get(url)    
-        
-            if response.status_code == 200:
-                print("User_Repositories Status Code:", response.status_code)
-            # Get specific data from the JSON
-                self.repo_data = response.json()     
-                
-            elif response.status_code == 404:
-                print(f"Repositories for '{self.user_name}' not found")
-                return None        
-                
-            else:
-                print(f'Error: {response.status_code}')
-                return None
-        
-        except requests.exceptions.ConnectionError:
-            print("Network error: Could not connect to the API")
-        except requests.exceptions.Timeout:
-            print("Request timed out")
-        except requests.exceptions.RequestException as e:
-            print(f"An error occurred: {e}")
+        # .extend() adds to a list. can do lists/ iterables. append only works with single object
+        # loop repo request until API returns empty list
+
+        all_repos = []
+        page = 1
+        while True:   
+            url = f"https://api.github.com/users/{self.user_name}/repos"
+            params = {
+                "per_page":100,
+                "page": page
+            }
+            
+            # note that parms dictionary fills into the url after ?. they are key value pairs. get parms from API documentation.
+            try:
+                response = requests.get(url, params=params)    
+            
+                if response.status_code == 200:
+                    print("User_Repositories Status Code:", response.status_code)
+                    # Get specific data from the JSON
+                    repo_data = response.json()
+                    # data will be blank if pages run out
+                    if not repo_data:
+                        break    
+
+                    all_repos.extend(repo_data)
+                    page += 1 
+                    
+                elif response.status_code == 404:
+                    print(f"Repositories for '{self.user_name}' not found")
+                    return None        
+                    
+                else:
+                    print(f'Error: {response.status_code}')
+                    return None
+            
+            except requests.exceptions.ConnectionError:
+                print("Network error: Could not connect to the API")
+            except requests.exceptions.Timeout:
+                print("Request timed out")
+            except requests.exceptions.RequestException as e:
+                print(f"An error occurred: {e}")
+
+        self.repo_data = all_repos
 
     #----------------------------------------------------------
     def calculate_stats(self):
@@ -74,7 +94,7 @@ class GitHub_Analyzer:
         #------------ Total stars across all repos
 
         stars_count = 0
-        for star_item in self.repo_data[:5]:            
+        for star_item in self.repo_data:            
             if stars_count:
                 stars_count += star_item.get('stargazers_count')
             else:
@@ -82,7 +102,7 @@ class GitHub_Analyzer:
 
         #------------ Most popular repository
         most_stars = []
-        for star_item in self.repo_data[:5]:
+        for star_item in self.repo_data:
             if not most_stars:
                 most_stars = star_item
             elif star_item.get('stargazers_count') > most_stars.get('stargazers_count'):
@@ -91,7 +111,7 @@ class GitHub_Analyzer:
         #------------ Primary language (most repos in that language)
 
         languages_used = []
-        for lang_item in self.repo_data[:5]:            
+        for lang_item in self.repo_data:            
             if lang_item['language']:
                 languages_used.append(lang_item['language']) 
 
@@ -101,7 +121,7 @@ class GitHub_Analyzer:
         #------------ Total forks across all repos
 
         forks_count = 0
-        for fork_item in self.repo_data[:5]:            
+        for fork_item in self.repo_data:            
             if forks_count:
                 forks_count += fork_item.get('forks_count')
             else:
@@ -133,6 +153,7 @@ class GitHub_Analyzer:
         print("Location:", self.user_data.get('location') or "N/A")
         print("Public Repos:", self.user_data.get('public_repos', "N/A"))
 
+        print("Statistics:")
         print(f"\nTotal Stars: {stats['total_stars']}")
         print(f"Most Popular Repository: {stats['most_stars']['name']}")
         print(f"Primary Language Used: {stats['primary_language'][0][0]}")
